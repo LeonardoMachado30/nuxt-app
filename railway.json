@@ -1,0 +1,9 @@
+{
+  "build": {
+    "dockerfilePath": "Dockerfile"
+  },
+  "deployments": {
+    "startCommand": "npm run start",
+    "restartPolicyType": "ALWAYS"
+  }
+}
