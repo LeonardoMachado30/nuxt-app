@@ -1,11 +1,11 @@
-import { defineEventHandler, readBody, sendError, send } from 'h3';
-import { convertFile } from '../utils/fileConverter';
+import {defineEventHandler, sendError, send} from 'h3';
+import {convertFile} from '~/server/utils/fileConversion';
 import formidable from 'formidable';
 import fs from 'fs';
 import path from 'path';
 
 export default defineEventHandler(async (event) => {
-    const form = formidable({ multiples: false, uploadDir: '/tmp', keepExtensions: true });
+    const form = formidable({multiples: false, uploadDir: '/tmp', keepExtensions: true});
 
     try {
         const [fields, files] = await form.parse(event.node.req);
@@ -24,6 +24,6 @@ export default defineEventHandler(async (event) => {
 
         return send(event, fileStream);
     } catch (error) {
-        return sendError(event, createError({ statusCode: 500, message: 'Erro na conversão para PDF' }));
+        return sendError(event, createError({statusCode: 500, message: 'Erro na conversão para PDF'}));
     }
 });
