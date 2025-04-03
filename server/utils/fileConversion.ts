@@ -1,51 +1,31 @@
 import { exec } from 'child_process';
-import fs from 'fs';
+import { promisify } from 'util';
 import path from 'path';
-import { tmpdir } from 'os';
-import { createError } from 'h3';
+import fs from 'fs';
 
-const libreOfficePath = process.platform === 'win32'
-    ? '"C:\\Program Files\\LibreOffice\\program\\soffice.exe"'
-    : 'libreoffice';
+const execAsync = promisify(exec);
 
-const pdfToWordTool = 'pdftotext'; // Alternativa: "pdf2docx" (instalar via pip)
+/**
+ * Converte arquivos utilizando o LibreOffice
+ * @param inputPath Caminho do arquivo de entrada (DOCX ou PDF)
+ * @param outputDir Diretório onde o arquivo convertido será salvo
+ * @param format Formato de saída ("pdf" para PDF, "docx" para Word)
+ * @returns Caminho do arquivo convertido
+ */
+export async function convertFile(inputPath: string, outputDir: string, format: 'pdf' | 'docx'): Promise<string> {
+    if (!fs.existsSync(inputPath)) throw new Error('Arquivo de entrada não encontrado.');
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
-// Função genérica para conversão
-export const convertFile = async (inputBuffer: Buffer, inputFilename: string, outputExt: string, conversionCommand: string) => {
+    const outputFilePath = path.join(outputDir, `${path.basename(inputPath, path.extname(inputPath))}.${format}`);
+
     try {
-        const tempDir = tmpdir();
-        const inputPath = path.join(tempDir, inputFilename);
-        const outputPath = path.join(tempDir, `${path.parse(inputFilename).name}.${outputExt}`);
+        const command = `libreoffice --headless --convert-to ${format} --outdir ${outputDir} ${inputPath}`;
+        await execAsync(command);
 
-        // Salvar o arquivo temporário
-        fs.writeFileSync(inputPath, inputBuffer);
+        if (!fs.existsSync(outputFilePath)) throw new Error(`Falha ao converter para .${format}`);
 
-        // Executar o comando de conversão
-        await new Promise<void>((resolve, reject) => {
-            exec(conversionCommand.replace('{input}', inputPath).replace('{output}', outputPath), (error, stdout, stderr) => {
-                if (error) {
-                    console.error('Erro na conversão:', stderr);
-                    reject(createError({ statusCode: 500, statusMessage: `Erro na conversão para .${outputExt}`, data: stderr }));
-                    return;
-                }
-                resolve();
-            });
-        });
-
-        // Ler o arquivo convertido
-        if (!fs.existsSync(outputPath)) throw createError({ statusCode: 500, statusMessage: `Erro ao gerar .${outputExt}` });
-
-        const outputBuffer = fs.readFileSync(outputPath);
-
-        // Limpeza dos arquivos temporários
-        setTimeout(() => {
-            fs.unlinkSync(inputPath);
-            fs.unlinkSync(outputPath);
-        }, 5000);
-
-        return outputBuffer;
+        return outputFilePath;
     } catch (error) {
-        console.error(`Erro ao converter para .${outputExt}:`, error);
-        throw createError({ statusCode: 500, statusMessage: `Falha ao converter para .${outputExt}` });
+        throw new Error(`Erro ao converter arquivo: ${error}`);
     }
-};
+}
